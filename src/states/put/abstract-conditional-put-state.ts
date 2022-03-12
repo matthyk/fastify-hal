@@ -1,29 +1,34 @@
 import { AbstractState } from '../abstract-state'
 import { IModel } from '../../model'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractConditionalPutState<
   Model extends IModel,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel = {}
 > extends AbstractState<Model, Request> {
-  protected currentModelInDatabase?: Model
+  protected currentModelInDatabase: Model
 
-  protected model?: Model
+  protected model: Model
 
   public override async build(): Promise<void> {
     await this.before()
 
+    let databaseResult
+
     try {
-      this.currentModelInDatabase = await this.loadModelFromDatabase()
+      databaseResult = await this.loadModelFromDatabase()
     } catch (e) {
       this.error(`Error while retrieving resource from database. ${e}`)
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    if (!this.currentModelInDatabase) {
+    if (typeof databaseResult === 'undefined') {
       throw this.fastify.httpErrors.notFound('This resource could not be found.')
     }
 
-    await this.beforeUpdate(this.currentModelInDatabase)
+    this.currentModelInDatabase = databaseResult
+
+    await this.beforeUpdate()
 
     if (!this.clientHasCurrentVersion()) {
       throw this.fastify.httpErrors.preconditionFailed(
@@ -31,17 +36,17 @@ export abstract class AbstractConditionalPutState<
       )
     }
 
-    this.model = this.createModel(this.currentModelInDatabase)
+    this.model = this.createModel()
     this.model.modifiedAt = Date.now()
 
     try {
-      await this.updateModelInDatabase(this.model)
+      await this.updateModelInDatabase()
     } catch (e) {
       this.error(`Error while updating resource in database. ${e}`)
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    await this.after(this.model)
+    await this.after()
 
     this.defineProperties()
 
@@ -63,15 +68,15 @@ export abstract class AbstractConditionalPutState<
     return this.req.evaluatePreconditions(lastModifiedAt, currentEtag)
   }
 
-  protected createModel(_currentModel: Model): Model {
+  protected createModel(): Model {
     return this.req.body as Model
   }
 
-  protected after(_updatedModel: Model): Promise<void> | void {}
+  protected after(): Promise<void> | void {}
 
   protected abstract loadModelFromDatabase(): Promise<Model | undefined>
 
-  protected abstract updateModelInDatabase(model: Model): Promise<void>
+  protected abstract updateModelInDatabase(): Promise<void>
 
-  protected async beforeUpdate(_model: Model): Promise<void> {}
+  protected async beforeUpdate(): Promise<void> {}
 }

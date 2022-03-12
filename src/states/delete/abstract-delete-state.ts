@@ -1,9 +1,10 @@
 import { IModel } from '../../model'
 import { AbstractState } from '../abstract-state'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractDeleteState<
   Model extends IModel,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel
 > extends AbstractState<Model, Request> {
   public override async build(): Promise<void> {
     await this.before()

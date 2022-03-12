@@ -2,120 +2,117 @@ import { FastifyInstance, HTTPMethods, RouteOptions } from 'fastify'
 import {
   AbstractGetCollectionStateWithOffsetSize,
   AbstractGetState,
+  RequestModel,
   StateConstructor,
 } from '../../states'
 import deepmerge from 'deepmerge'
+import { IModel } from '../../model'
 
-export function getState(
+export function getState<
+  M extends IModel,
+  R extends RequestModel,
+  T extends AbstractGetState<M, R>
+>(
   this: FastifyInstance,
   routeOptions: Omit<RouteOptions, 'handler' | 'method'>,
-  stateConstructor: StateConstructor<AbstractGetState<any, any>>
+  stateConstructor: StateConstructor<M, R, T>
 ): FastifyInstance {
-  return this.state(
-    deepmerge(
-      {
-        method: 'GET' as HTTPMethods,
-        schema: {
-          response: {
-            304: {
-              type: 'null',
-            },
-            200: {
+  const opts = {
+    method: 'GET' as HTTPMethods,
+    schema: {
+      headers: {
+        'If-None-Match': {
+          type: 'string',
+        },
+      },
+      response: {
+        304: {
+          type: 'null',
+        },
+        200: {
+          type: 'object',
+          properties: {
+            _links: {
               type: 'object',
               properties: {
-                id: {
-                  type: ['string', 'integer'],
+                self: {
+                  $ref: 'HalLink#',
                 },
-                _links: {
-                  type: 'object',
-                  additionalProperties: {
-                    $ref: 'HalLinks#',
-                  },
-                },
-                _embedded: {
-                  type: 'object',
-                  additionalProperties: {
-                    $ref: 'ResourceObjects#',
-                  },
-                },
+              },
+            },
+          },
+          headers: {
+            'Cache-Control': {
+              description: 'Cache-Control',
+              schema: {
+                type: 'string',
+              },
+            },
+            ETag: {
+              description: 'ETag',
+              schema: {
+                type: 'string',
               },
             },
           },
         },
       },
-      routeOptions
-    ),
-    stateConstructor
-  )
+    },
+  }
+
+  return this.state(deepmerge(opts, routeOptions), stateConstructor)
 }
 
-export function getCollectionWithOffsetSizeState(
+export function getCollectionWithOffsetSizeState<
+  M extends IModel,
+  R extends RequestModel,
+  T extends AbstractGetCollectionStateWithOffsetSize<M, R>
+>(
   this: FastifyInstance,
   routeOptions: Omit<RouteOptions, 'handler' | 'method'>,
-  stateConstructor: StateConstructor<AbstractGetCollectionStateWithOffsetSize<any, any>>
+  stateConstructor: StateConstructor<M, R, T>
 ): FastifyInstance {
-  return this.state(
-    deepmerge(
-      {
-        method: 'GET' as HTTPMethods,
-        schema: {
-          querystring: {
-            type: 'object',
-            properties: {
-              offset: {
-                type: 'integer',
-                default: 0,
-              },
-              size: {
-                type: 'integer',
-                default: 10,
+  const opts = {
+    method: 'GET' as HTTPMethods,
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          offset: {
+            type: 'integer',
+            default: this.pluginOptions.pagination.defaultOffset,
+          },
+          size: {
+            type: 'integer',
+            default: this.pluginOptions.pagination.defaultSize,
+          },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            _links: {
+              self: {
+                $ref: 'HalLink#',
               },
             },
+            totalCount: {
+              type: 'integer',
+            },
           },
-          response: {
-            200: {
-              type: 'object',
-              properties: {
-                additionalProperties: {
-                  type: {
-                    $ref: 'HalLink#',
-                  },
-                },
-                _links: {
-                  type: 'object',
-                  properties: {
-                    self: {
-                      $ref: 'HalLink#',
-                    },
-                    first: {
-                      $ref: 'HalLink#',
-                    },
-                    prev: {
-                      $ref: 'HalLink#',
-                    },
-                    next: {
-                      $ref: 'HalLink#',
-                    },
-                    last: {
-                      $ref: 'HalLink#',
-                    },
-                  },
-                },
-              },
-              headers: {
-                'Cache-Control': {
-                  description: 'Cache-Control',
-                  schema: {
-                    type: 'string',
-                  },
-                },
+          headers: {
+            'Cache-Control': {
+              description: 'Cache-Control',
+              schema: {
+                type: 'string',
               },
             },
           },
         },
       },
-      routeOptions
-    ),
-    stateConstructor
-  )
+    },
+  }
+
+  return this.state(deepmerge(opts, routeOptions), stateConstructor)
 }

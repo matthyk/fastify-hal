@@ -1,13 +1,9 @@
 import { AbstractState } from './abstract-state'
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { IModel } from '../model'
 
-export type StateConstructor<T extends AbstractState<any, any> = AbstractState<any, any>> = new (
-  fastify: FastifyInstance,
-  req: FastifyRequest<{
-    Body?: unknown
-    Params?: unknown
-    Headers?: unknown
-    Querystring?: unknown
-  }>,
-  reply: FastifyReply
-) => T
+export type StateConstructor<
+  Model extends IModel,
+  Request,
+  T extends AbstractState<Model, Request> = AbstractState<Model, Request>
+> = new (fastify: FastifyInstance, req: FastifyRequest<Request>, reply: FastifyReply) => T

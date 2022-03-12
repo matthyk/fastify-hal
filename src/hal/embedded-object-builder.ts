@@ -1,7 +1,7 @@
 import { AbstractState } from '../states'
-import { copyPrimitiveProperties } from '../copy-properties'
 import { HalLink, ResourceObject } from './hal-format'
 import { buildEmbeddedObject } from './build-embedded'
+import { copyPrimitiveProperties } from '../utils/copy-properties'
 
 export class EmbeddedObjectBuilder<Model, State extends AbstractState<any, any>> {
   constructor(

@@ -5,12 +5,11 @@
   "main": "dist/plugin.js",
   "scripts": {
     "test": "jest --config jest.config.js",
-    "format": "prettier --write \"src/**/*.ts\" \"__test__/**/*.ts\" \"benchmarks/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"__test__/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" \"__test__/**/*.ts\"",
     "lint:fix": "eslint --fix \"src/**/*.ts\" \"__test__/**/*.ts\"",
     "build": "tsc --project tsconfig.build.json",
-    "clean": "rimraf dist",
-    "dev": "ts-node --files --transpile-only example/index.ts"
+    "clean": "rimraf dist"
   },
   "keywords": [
     "REST",
@@ -24,7 +23,6 @@
   "author": "Matthias Keckl",
   "license": "MIT",
   "devDependencies": {
-    "@types/benchmark": "^2.1.1",
     "@types/jest": "^27.4.0",
     "@types/node": "^17.0.17",
     "@typescript-eslint/eslint-plugin": "^5.11.0",

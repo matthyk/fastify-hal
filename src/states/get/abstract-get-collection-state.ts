@@ -1,19 +1,20 @@
 import { AbstractState } from '../abstract-state'
 import { IModel } from '../../model'
 import { AbstractPagination, PaginationResult } from '../../pagination'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractGetCollectionState<
   Model extends IModel,
   P,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel = {}
 > extends AbstractState<Model, Request> {
   protected databaseResult: Model[] = []
 
-  protected paginationResult?: PaginationResult<P>
+  protected paginationResult: PaginationResult<P>
 
-  protected pagination?: AbstractPagination<P>
+  protected pagination: AbstractPagination<P>
 
-  protected paginationUrls?: PaginationResult<string>
+  protected paginationUrls: PaginationResult<string>
 
   protected current: P
 

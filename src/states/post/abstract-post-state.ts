@@ -1,10 +1,11 @@
 import { AbstractState } from '../abstract-state'
 import { IModel } from '../../model'
-import { copyPrimitiveProperties } from '../../copy-properties'
+import { copyPrimitiveProperties } from '../../utils/copy-properties'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractPostState<
   Model extends IModel,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel = {}
 > extends AbstractState<Model, Request> {
   protected model: Model
 
@@ -20,7 +21,7 @@ export abstract class AbstractPostState<
     this.model.createdAt = now
 
     try {
-      this.createdModel = await this.saveModelInDatabase(this.model)
+      this.createdModel = await this.saveModelInDatabase()
     } catch (e) {
       this.logger.error(
         `[ ${this.constructor.name} ]: Error while saving resource in database. ${e}`
@@ -28,7 +29,7 @@ export abstract class AbstractPostState<
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    await this.after(this.model)
+    await this.after()
 
     this.defineProperties()
 
@@ -53,12 +54,16 @@ export abstract class AbstractPostState<
     this.resourceObject = copyPrimitiveProperties(this.createdModel, this.resourceObject)
   }
 
+  protected override getTheModel(): Model {
+    return this.createdModel
+  }
+
   protected defineLocationLink(): void {
     const locationLink = this.req.fullUrl() + '/' + this.createdModel.id
     this.reply.header('Location', locationLink)
   }
 
-  protected after(_model: Model): Promise<void> | void {}
+  protected after(): Promise<void> | void {}
 
-  protected abstract saveModelInDatabase(model: Model): Promise<Model>
+  protected abstract saveModelInDatabase(): Promise<Model>
 }

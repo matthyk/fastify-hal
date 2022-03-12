@@ -1,30 +1,35 @@
 import { AbstractState } from '../abstract-state'
 import { IModel } from '../../model'
-import { copyPrimitiveProperties } from '../../copy-properties'
+import { copyPrimitiveProperties } from '../../utils/copy-properties'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractGetState<
   Model extends IModel,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel = {}
 > extends AbstractState<Model, Request> {
-  protected requestedModel?: Model
+  protected requestedModel: Model
 
   protected etag?: string
 
   public override async build(): Promise<void> {
     await this.before()
 
+    let databaseResult
+
     try {
-      this.requestedModel = await this.loadModelFromDatabase()
+      databaseResult = await this.loadModelFromDatabase()
     } catch (e) {
       this.error(`Error when query the resource from the repository. ${e}`)
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    if (typeof this.requestedModel === 'undefined') {
+    if (typeof databaseResult === 'undefined') {
       throw this.fastify.httpErrors.notFound('The requested resource could not be found.')
     }
 
-    await this.after(this.requestedModel)
+    this.requestedModel = databaseResult
+
+    await this.after()
 
     if (this.clientHasCurrentVersion()) {
       return this.reply.status(304).send()
@@ -47,19 +52,19 @@ export abstract class AbstractGetState<
     return this.reply.send(this.resourceObject)
   }
 
-  protected after(_model: Model): Promise<void> | void {}
+  protected after(): Promise<void> | void {}
 
   protected clientHasCurrentVersion(): boolean {
     this.etag = this.createEtag(this.requestedModel)
 
     // at this point requestedModel is guaranteed to be defined
-    return this.req.evaluatePreconditions(this.requestedModel!.modifiedAt, this.etag)
+    return this.req.evaluatePreconditions(this.requestedModel.modifiedAt, this.etag)
   }
 
   protected abstract loadModelFromDatabase(): Promise<Model | undefined>
 
   protected override defineProperties(): void {
-    this.resourceObject = copyPrimitiveProperties(this.requestedModel!, this.resourceObject)
+    this.resourceObject = copyPrimitiveProperties(this.requestedModel, this.resourceObject)
   }
 
   protected override getTheModel(): Model {

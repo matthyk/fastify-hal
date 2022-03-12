@@ -6,36 +6,25 @@ import {
   OffsetSizePagination,
   OffsetSizePage,
 } from '../../pagination'
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { FastifyRequest } from 'fastify'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractGetCollectionStateWithOffsetSize<
   Model extends IModel,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel = {}
 > extends AbstractGetCollectionState<Model, OffsetSizePage, Request> {
   protected totalCount: number = 0
 
-  protected collectionDatabaseResult?: CollectionResult<Model>
+  protected collectionDatabaseResult: CollectionResult<Model>
 
   public override readonly req: FastifyRequest<{
-    Body: never
-    Querystring: { offset: number; size: number } & Request['Querystring']
-    Headers: Request['Headers']
-    Params: Request['Params']
+    Body: Request['Body'] extends unknown ? Request['body'] : Request['Body']
+    Params: Request['Params'] extends unknown ? Request['params'] : Request['Params']
+    Headers: Request['Headers'] extends unknown ? Request['headers'] : Request['Headers']
+    Querystring: { offset: number; size: number } & (Request['Querystring'] extends unknown
+      ? Request['querystring']
+      : Request['Querystring'])
   }>
-
-  constructor(
-    fastify: FastifyInstance,
-    req: FastifyRequest<{
-      Body: never
-      Querystring: { offset: number; size: number } & Request['Querystring']
-      Headers: Request['Headers']
-      Params: Request['Params']
-    }>,
-    reply: FastifyReply
-  ) {
-    super(fastify, req, reply)
-    this.req = req
-  }
 
   protected override async loadModelsFromDatabase(): Promise<Model[]> {
     this.collectionDatabaseResult = await this.loadModelsAndTotalCountFromDatabase()
@@ -48,18 +37,27 @@ export abstract class AbstractGetCollectionStateWithOffsetSize<
   protected abstract loadModelsAndTotalCountFromDatabase(): Promise<CollectionResult<Model>>
 
   protected override definePagination(): AbstractPagination<OffsetSizePage> {
-    return new OffsetSizePagination(this.collectionDatabaseResult!, this.current)
+    return new OffsetSizePagination(
+      this.collectionDatabaseResult!,
+      this.current,
+      this.fastify.pluginOptions.pagination.defaultSize,
+      this.fastify.pluginOptions.pagination.defaultOffset
+    )
   }
 
   protected override extractCurrent(): OffsetSizePage {
     return {
-      offset: +this.req.query.offset ?? 0,
-      size: +this.req.query.size ?? 10,
+      offset: +this.req.query.offset ?? this.fastify.pluginOptions.pagination.defaultOffset,
+      size: +this.req.query.size ?? this.fastify.pluginOptions.pagination.defaultSize,
     }
   }
 
+  protected getUrlForPaginationLinks(): URL {
+    return new URL(this.req.fullUrl())
+  }
+
   protected override createUrl(page: OffsetSizePage): string {
-    const url = new URL(this.req.fullUrl())
+    const url = this.getUrlForPaginationLinks()
 
     url.searchParams.set('size', page.size.toString())
     url.searchParams.set('offset', page.offset.toString())
@@ -69,7 +67,6 @@ export abstract class AbstractGetCollectionStateWithOffsetSize<
 
   protected override definePaginationResponse() {
     super.definePaginationResponse()
-    // @ts-ignore
-    this.resourceObject['totalCount'] = this.totalCount
+    this.defineProperty('totalCount', this.totalCount)
   }
 }

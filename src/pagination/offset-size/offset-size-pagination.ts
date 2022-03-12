@@ -13,8 +13,8 @@ export class OffsetSizePagination<Model extends IModel> extends AbstractPaginati
   constructor(
     protected collectionResult: CollectionResult<Model>,
     current: OffsetSizePage,
-    protected defaultSize: number = 10,
-    protected defaultOffset: number = 0
+    protected defaultSize: number,
+    protected defaultOffset: number
   ) {
     super(current)
     this.size = current.size

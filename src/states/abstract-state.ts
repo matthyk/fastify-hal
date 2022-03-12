@@ -4,25 +4,22 @@ import { EmbeddedObjectBuilder } from '../hal/embedded-object-builder'
 import { buildEmbeddedObject } from '../hal/build-embedded'
 import { HalLink, ResourceObject } from '../hal/hal-format'
 import { EmbeddedArrayBuilder } from '../hal/embedded-array-builder'
+import { RequestModel } from './request-model'
 
-export abstract class AbstractState<
-  Model,
-  Request extends {
-    Body?: unknown
-    Params?: unknown
-    Headers?: unknown
-    Querystring?: unknown
-  } = {}
-> {
-  protected static HAL_MEDIA_TYPE: string = 'application/hal+json'
+export abstract class AbstractState<Model, Request extends RequestModel = {}> {
+  protected static HAL_TYPE: string = 'application/hal+json'
+
+  protected static JSON_TYPE: string = 'application/json'
 
   public readonly fastify: FastifyInstance
 
   public readonly req: FastifyRequest<{
-    Body: Request['Body']
-    Params: Request['Params']
-    Headers: Request['Headers']
-    Querystring: Request['Querystring']
+    Body: Request['Body'] extends unknown ? Request['body'] : Request['Body']
+    Params: Request['Params'] extends unknown ? Request['params'] : Request['Params']
+    Headers: Request['Headers'] extends unknown ? Request['headers'] : Request['Headers']
+    Querystring: Request['Querystring'] extends unknown
+      ? Request['querystring']
+      : Request['Querystring']
   }>
 
   public readonly reply: FastifyReply
@@ -59,7 +56,7 @@ export abstract class AbstractState<
       },
       _embedded: {},
     }
-    this.reply.type(AbstractState.HAL_MEDIA_TYPE)
+    this.reply.type(AbstractState.HAL_TYPE)
   }
 
   protected preventCaching(): void {
@@ -111,6 +108,10 @@ export abstract class AbstractState<
 
   protected defineProperties(): void {}
 
+  protected defineProperty(key: string, value: unknown): void {
+    ;(this.resourceObject as any)[key] = value
+  }
+
   protected addLink(relationType: string, href: string, opts: Omit<HalLink, 'href'> = {}) {
     this.resourceObject._links[relationType] = {
       href,
@@ -154,12 +155,14 @@ export abstract class AbstractState<
     relationType: K,
     href: string,
     object: O,
-    build: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this>
+    build?: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this>
   ): void
   protected addAbsoluteEmbeddedObject<K extends keyof Model & string>(
     relationType: K,
     href: string,
-    build: (builder: EmbeddedObjectBuilder<Model[K], this>) => EmbeddedObjectBuilder<Model[K], this>
+    build?: (
+      builder: EmbeddedObjectBuilder<Model[K], this>
+    ) => EmbeddedObjectBuilder<Model[K], this>
   ): void
   protected addAbsoluteEmbeddedObject<
     K extends keyof Model & string,
@@ -167,11 +170,12 @@ export abstract class AbstractState<
   >(
     relationType: K,
     href: string,
-    buildOrObject:
+    buildOrObject?:
       | ((builder: EmbeddedObjectBuilder<Model[K], this>) => EmbeddedObjectBuilder<Model[K], this>)
       | O,
     build?: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this>
   ): void {
+    // FIXME
     // @ts-ignore
     this.addEmbeddedObject(relationType, this.req.absoluteUrl(href), buildOrObject, build)
   }
@@ -180,20 +184,24 @@ export abstract class AbstractState<
     relationType: K,
     href: string,
     object: O,
-    build: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this>
+    build?: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this>
   ): void
   protected addEmbeddedObject<K extends keyof Model & string>(
     relationType: K,
     href: string,
-    build: (builder: EmbeddedObjectBuilder<Model[K], this>) => EmbeddedObjectBuilder<Model[K], this>
+    build?: (
+      builder: EmbeddedObjectBuilder<Model[K], this>
+    ) => EmbeddedObjectBuilder<Model[K], this>
   ): void
   protected addEmbeddedObject<K extends keyof Model & string, O extends Record<string, any>>(
     relationType: K,
     href: string,
     buildOrObject:
       | ((builder: EmbeddedObjectBuilder<Model[K], this>) => EmbeddedObjectBuilder<Model[K], this>)
-      | O,
-    build?: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this>
+      | O = (builder) => builder.withProperties(),
+    build: (builder: EmbeddedObjectBuilder<O, this>) => EmbeddedObjectBuilder<O, this> = (
+      builder
+    ) => builder.withProperties()
   ): void {
     if (typeof build === 'undefined') {
       this.resourceObject = buildEmbeddedObject(

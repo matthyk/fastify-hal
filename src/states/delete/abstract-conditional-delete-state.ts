@@ -1,27 +1,32 @@
 import { AbstractState } from '../abstract-state'
 import { IModel } from '../../model'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractConditionalDeleteState<
   Model extends IModel,
-  Request extends { Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel
 > extends AbstractState<Model, Request> {
-  protected currentModelInDatabase?: Model
+  protected currentModelInDatabase: Model
 
   public override async build(): Promise<void> {
     await this.before()
 
+    let databaseResult
+
     try {
-      this.currentModelInDatabase = await this.loadModelFromDatabase()
+      databaseResult = await this.loadModelFromDatabase()
     } catch (e) {
       this.error(`Error while retrieving resource from database. ${e}`)
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    if (!this.currentModelInDatabase) {
+    if (typeof databaseResult === 'undefined') {
       throw this.fastify.httpErrors.notFound('This resource could not be found.')
     }
 
-    await this.beforeDelete(this.currentModelInDatabase)
+    this.currentModelInDatabase = databaseResult
+
+    await this.beforeDelete()
 
     if (!this.clientHasCurrentVersion()) {
       throw this.fastify.httpErrors.preconditionFailed(
@@ -30,13 +35,13 @@ export abstract class AbstractConditionalDeleteState<
     }
 
     try {
-      await this.deleteModelInDatabase(this.currentModelInDatabase)
+      await this.deleteModelInDatabase()
     } catch (e) {
       this.error(`Error while updating resource in database. ${e}`)
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    await this.after(this.currentModelInDatabase)
+    await this.after()
 
     this.defineProperties()
 
@@ -58,15 +63,15 @@ export abstract class AbstractConditionalDeleteState<
     return this.req.evaluatePreconditions(lastModifiedAt, currentEtag)
   }
 
-  protected createModel(_currentModel: Model): Model {
+  protected createModel(): Model {
     return this.req.body as unknown as Model
   }
 
-  protected after(_updatedModel: Model): Promise<void> | void {}
+  protected after(): Promise<void> | void {}
 
   protected abstract loadModelFromDatabase(): Promise<Model | undefined>
 
-  protected abstract deleteModelInDatabase(model: Model): Promise<void>
+  protected abstract deleteModelInDatabase(): Promise<void>
 
-  protected async beforeDelete(_currentModelInDatabase: Model): Promise<void> {}
+  protected async beforeDelete(): Promise<void> {}
 }

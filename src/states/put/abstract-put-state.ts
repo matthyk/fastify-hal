@@ -1,11 +1,12 @@
 import { AbstractState } from '../abstract-state'
 import { IModel } from '../../model'
+import { RequestModel } from '../request-model'
 
 export abstract class AbstractPutState<
   Model extends IModel,
-  Request extends { Body?: unknown; Params?: unknown; Headers?: unknown; Querystring?: unknown }
+  Request extends RequestModel = {}
 > extends AbstractState<Model, Request> {
-  protected model?: Model
+  protected model: Model
 
   public override async build(): Promise<void> {
     await this.before()
@@ -14,13 +15,13 @@ export abstract class AbstractPutState<
     this.model.modifiedAt = Date.now()
 
     try {
-      await this.updateModelInDatabase(this.model)
+      await this.updateModelInDatabase()
     } catch (e) {
       this.error(`Error while updating resource in database. ${e}`)
       throw this.fastify.httpErrors.internalServerError('An unexpected error occurred.')
     }
 
-    await this.after(this.model)
+    await this.after()
 
     this.defineProperties()
 
@@ -39,7 +40,7 @@ export abstract class AbstractPutState<
     return this.req.body as Model
   }
 
-  protected after(_model: Model): Promise<void> | void {}
+  protected after(): Promise<void> | void {}
 
-  protected abstract updateModelInDatabase(model: Model): Promise<void>
+  protected abstract updateModelInDatabase(): Promise<void>
 }

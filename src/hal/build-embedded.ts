@@ -35,7 +35,7 @@ export function buildEmbeddedObject<
   ).resourceObject
 
   if (
-    state.fastify.activateHypertextCachePattern &&
+    state.fastify.pluginOptions.activateHypertextCachePattern &&
     (resourceObject._embedded[relationType] as ResourceObject)._links.self
   ) {
     resourceObject._links[relationType] = (
